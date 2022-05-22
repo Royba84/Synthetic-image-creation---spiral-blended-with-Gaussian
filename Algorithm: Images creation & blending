@@ -1,0 +1,121 @@
+/*
+  First steps in Image Processing
+  Creating simple Synthetic Images
+  Using BMP Library
+*/
+
+
+#include <stdio.h> // for printf
+#include <conio.h> // for getch
+
+#include <iostream> // for cin cout
+#include <fstream>  // For file IO
+using namespace std;
+
+// This needed to do Math calculations
+#define _USE_MATH_DEFINES
+#include <math.h>
+#define WHITE_VAL (255)
+#define BLACK_VAL (0)
+// BMP Library
+#include "ImProcInPlainC.h"
+
+
+//The idea is to take a circle and to "play" with it's radius and position of center
+// Defines for the circle part
+#define FINALE_RADIOUS (119)
+#define CENTER_COLUMN (NUMBER_OF_COLUMNS/2)
+#define CENTER_ROW (NUMBER_OF_ROWS/2)
+#define LINE_WIDTH 4
+
+#define INITIAL_ANGLE 0
+#define FINALE_ANGLE 360
+#define STEP_ANGLE 0.001
+#define Spiral_density 10
+#define blend_factor 0.5
+
+// For security reasons:
+bool IsTransparencyValid(unsigned char transparency) {
+	return (transparency >= 0 && transparency <= 255);
+}
+
+bool IsBoundsValid(int top, int left, int height, int width) {
+	if (top < 0 || left < 0 || height < 0 || width < 0)
+		return false;
+	else if (top + height > NUMBER_OF_ROWS)
+		return false;
+	else if (left + width > NUMBER_OF_COLUMNS)
+		return false;
+	else
+		return true;
+}
+
+void AddGrayRectangle(unsigned char img[][NUMBER_OF_COLUMNS],
+	int top, int left, int height, int width,
+	unsigned char grayLevel, unsigned char  transparency)
+{
+	// protection-again, secutrity reasons:
+	if (!(IsTransparencyValid(transparency) && IsBoundsValid(top, left, height, width))) {
+		printf_s("1 or more arguments are invalid.\n");
+		return;
+	}
+
+	// Plotting:
+	for (int row = top; row < top + height; row++)
+	{
+		for (int column = left; column < left + width; column++)
+		{
+			img[row][column] = (unsigned char)((int)img[row][column] * transparency / 255.0 + (255.0 - transparency) * grayLevel / 255.0);
+		}
+	}
+}
+//Here we plot our gaussian image
+void DrawGaussian(unsigned char image[][NUMBER_OF_COLUMNS], int centerX, int centerY, double SigmaX, double SigmaY) {
+
+
+	for (int row = 0; row < NUMBER_OF_ROWS; row++)
+		for (int column = 0; column < NUMBER_OF_COLUMNS; column++) {
+			double xa = (column - centerX) / SigmaX;
+			double ya = (row - centerY) / SigmaY;
+			double answer = 255.0 * (exp((-xa * xa - ya * ya)));
+			image[row][column] = (unsigned char)(unsigned)(answer);
+		}
+}
+//Here we plot our spiral image
+
+void DrawSpiral(unsigned char img[][NUMBER_OF_COLUMNS]) {
+
+	AddGrayRectangle(img, 0, 0, 240, 320, 255, 0); //creating white background
+	int row, col;
+	for (double angle = 0; angle < 80*M_PI; angle+= STEP_ANGLE) {
+		double r = ((angle / (2 * M_PI))) * angle/ Spiral_density;
+		for (double inside_r = r - LINE_WIDTH/2; inside_r < r + LINE_WIDTH/2; inside_r++) {
+
+			row = inside_r * sin(angle);
+			col = inside_r * cos(angle);
+			if (r < FINALE_RADIOUS) {
+				if (IsBoundsValid(row + CENTER_ROW, col + CENTER_COLUMN, 0, 0))
+					img[row + CENTER_ROW][col + CENTER_COLUMN] = BLACK_VAL;
+				continue;
+			}
+		}
+	}
+}
+//Our images spiral&gaussians:
+unsigned char SpiralImage[NUMBER_OF_ROWS][NUMBER_OF_COLUMNS];
+unsigned char GauImage1[NUMBER_OF_ROWS][NUMBER_OF_COLUMNS];
+unsigned char GauImage2[NUMBER_OF_ROWS][NUMBER_OF_COLUMNS];
+void main()
+{
+	DrawSpiral(SpiralImage);
+	StoreGrayImageAsGrayBmpFile(SpiralImage, "image of spiral.bmp");
+	DrawGaussian(GauImage1, NUMBER_OF_COLUMNS / 2, NUMBER_OF_ROWS / 2, 5, 5);
+	StoreGrayImageAsGrayBmpFile(GauImage1, "image of Gaussian1.bmp");
+	DrawGaussian(GauImage2, (NUMBER_OF_COLUMNS / 2)+100, (NUMBER_OF_ROWS / 2)+100, 105, 105);
+	StoreGrayImageAsGrayBmpFile(GauImage2, "image of Gaussian2.bmp");
+	for (int row = 0; row < NUMBER_OF_ROWS; row++)
+		for (int col = 0; col < NUMBER_OF_COLUMNS; col++) 
+			SpiralImage[row][col] = SpiralImage[row][col] * blend_factor + (1 - blend_factor) * GauImage1[row][col]+(1-blend_factor)*GauImage2[row][col];
+	StoreGrayImageAsGrayBmpFile(SpiralImage, "grayImage14.bmp");
+	WaitForUserPressKey();
+}
